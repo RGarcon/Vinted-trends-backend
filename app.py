@@ -1,44 +1,37 @@
-from flask import Flask, jsonify
 import requests
 from bs4 import BeautifulSoup
-import re
-from flask_cors import CORS
 
-app = Flask(__name__)
-CORS(app)
+def scrap_vinted(query, num_pages=1):
+    base_url = "https://www.vinted.fr/vetements"
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
-# Hashtags en dur pour Vinted
-VINTED_HASHTAGS = [
-    "vintedstyle", "haulvinted", "vintedfr", "vintedhaul",
-    "vintedlook", "vintedtrouve", "vintedfashion", "vintedfinds"
-]
+    results = []
 
-@app.route("/trends")
-def trends():
-    return jsonify(VINTED_HASHTAGS)
+    for page in range(1, num_pages + 1):
+        params = {
+            "search_text": query,
+            "page": page
+        }
 
-@app.route("/keywords/<tag>")
-def keywords(tag):
-    headers = {"User-Agent": "Mozilla/5.0"}
-    url = f"https://www.tiktok.com/tag/{tag}"
-    
-    try:
-        r = requests.get(url, headers=headers)
-        soup = BeautifulSoup(r.text, "html.parser")
-        
-        texts = soup.stripped_strings
-        all_text = " ".join(texts)
+        response = requests.get(base_url, headers=headers, params=params)
+        soup = BeautifulSoup(response.text, "html.parser")
 
-        words = re.findall(r'\b\w{4,15}\b', all_text.lower())  # Mots de 4 à 15 lettres
-        ignore = {"https", "tiktok", "video", "vinted", "watch", "share", "more"}
-        freq = {}
+        items = soup.find_all("div", class_="feed-grid__item")
 
-        for word in words:
-            if word not in ignore:
-                freq[word] = freq.get(word, 0) + 1
+        for item in items:
+            try:
+                title = item.find("h3").get_text(strip=True)
+                price = item.find("div", class_="feed-item__price").get_text(strip=True)
+                url = "https://www.vinted.fr" + item.find("a")["href"]
+                results.append({"title": title, "price": price, "url": url})
+            except AttributeError:
+                continue  # Skip if the structure has changed
 
-        top_words = sorted(freq.items(), key=lambda x: x[1], reverse=True)[:15]
-        return jsonify([w[0] for w in top_words])
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return results
+
+# Exemple d’utilisation
+articles = scrap_vinted("nike", num_pages=2)
+for article in articles:
+    print(article)
