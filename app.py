@@ -2,8 +2,10 @@ from flask import Flask, jsonify
 import requests
 from bs4 import BeautifulSoup
 import re
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 # Hashtags en dur pour Vinted
 VINTED_HASHTAGS = [
